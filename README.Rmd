@@ -4,6 +4,7 @@ output:
   github_document: default
   tufte::tufte_html:
     css: style.css
+always_allow_html: true
 link-citations: yes
 ---
 
@@ -207,6 +208,9 @@ result
 #check for duplicates
 length(unique(result$STATE)) == nrow(result)
 ```
+There are no identical observations in the representation in state, so we do not need to order by latitude.
+
+
 
 Knit the doc and save it on GitHub.
 
@@ -215,9 +219,44 @@ Knit the doc and save it on GitHub.
 For each state, identify what is the station that is closest to the mid-point of the state. Combining these with the stations you identified in the previous question, use `leaflet()` to visualize all ~100 points in the same figure, applying different colors for those identified in this question.
 
 ```{r}
+#mean 
+met_mid_pt_lz <- met_lz %>%  group_by(STATE) %>% summarise(
+  across (c(lat, lon), function(x) mean(x,na.rm=TRUE))) 
 
+
+merged <- met_lz %>% left_join(met_mid_pt_lz, by = "STATE") %>% as.data.frame()
+merged
+```
+
+```{r}
+euc_dis <- merged %>% mutate(
+  distance = ((lat.x -merged$lat.y )^2 + 
+                    (lon.x -merged$lon.y)^2  
+                       )^(1/2)) 
+
+
+
+result2 <- euc_dis %>% 
+    group_by(STATE) %>% 
+    slice(which.min(distance))
+
+
+result2
+
+#check for duplicates
+length(unique(result$STATE)) == nrow(result)
+```
+
+```{r}
+library(leaflet)
+
+# uni_data
+leaflet(result) %>% addProviderTiles('OpenStreetMap')  %>% 
+  addCircleMarkers(lng = ~lon, lat = ~lat,fillColor = "Purple", weight = 0 )%>%
+  addCircleMarkers(lng = ~result2$lon.x, lat = ~result2$lat.x,fillColor = "Green", weight = 0) 
 
 ```
+
 
 Knit the doc and save it on GitHub.
 
@@ -232,6 +271,18 @@ Start by computing the states' average temperature. Use that measurement to clas
 - High: temp >= 25
 
 ```{r}
+#average temp for each state
+met_avg_temp_lz <- met_lz %>%  group_by(STATE) %>% summarise(
+  across (c(temp), function(x) mean(x,na.rm=TRUE))) 
+merged_q4 <- met_lz %>% left_join(met_avg_temp_lz, by = "STATE")
+# merged_q4 %>% as.data.frame()
+#based on average temp, 
+summary_cat <- merged_q4 %>% mutate( temp_cat = case_when(
+  temp.y < 20 ~ "low",
+    temp.y>= 20 & temp.y < 25 ~ "Mid",
+    temp.y>= 25  ~ "High"
+))
+summary_cat%>% as.data.frame()
 ```
 
 Once you are done with that, you can compute the following:
@@ -245,6 +296,15 @@ Once you are done with that, you can compute the following:
 All by the levels described before.
 
 ```{r}
+summary_cat %>%  group_by(temp_cat) %>% summarise(
+  num_entries = n(),
+  na_entries = sum(is.na(temp.x)),
+  num_stations = length(unique(USAFID)),
+  num_states = length(unique(STATE)),
+  mean_temp = mean(temp.x,na.rm=TRUE ),
+    mean_windsp = mean(wind.sp,na.rm=TRUE),
+  mean_atms_pres = mean(atm.press,na.rm=TRUE)
+  ) %>% as.data.frame()
 ```
 
 Knit the document, commit your changes, and push them to GitHub. 
