@@ -143,14 +143,14 @@ Across all weather stations, what is the median station in terms of temperature,
 ```{r}
 met_avg_lz <- met_lz %>%  group_by(USAFID)%>% summarise(
   across (c(temp, wind.sp, atm.press), function(x) mean(x, na.rm=TRUE))) 
-met_avg_lz
+
 ```
 
 ```{r}
 #median 
 met_med_lz <- met_avg_lz %>% summarise(
   across (c(temp, wind.sp, atm.press), function(x) quantile(x, probs = 0.5, na.rm=TRUE)))
-met_med_lz
+
 ```
 
 ```{r}
@@ -185,10 +185,8 @@ Just like the previous question, you are asked to identify what is the most repr
 #median 
 met_med_s_lz <- met_lz %>%  group_by(STATE) %>% summarise(
   across (c(temp, wind.sp, atm.press), function(x) quantile(x, probs = 0.5, na.rm=TRUE))) 
-
-
 merged <- met_lz %>% left_join(met_med_s_lz, by = "STATE") %>% as.data.frame()
-merged
+
 ```
 ```{r}
 euc_station <- merged %>% mutate(
@@ -225,7 +223,7 @@ met_mid_pt_lz <- met_lz %>%  group_by(STATE) %>% summarise(
 
 
 merged <- met_lz %>% left_join(met_mid_pt_lz, by = "STATE") %>% as.data.frame()
-merged
+
 ```
 
 ```{r}
@@ -282,7 +280,6 @@ summary_cat <- merged_q4 %>% mutate( temp_cat = case_when(
     temp.y>= 20 & temp.y < 25 ~ "Mid",
     temp.y>= 25  ~ "High"
 ))
-summary_cat%>% as.data.frame()
 ```
 
 Once you are done with that, you can compute the following:
