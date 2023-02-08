@@ -181,12 +181,31 @@ Knit the document, commit your changes, and save it on GitHub. Don't forget to a
 Just like the previous question, you are asked to identify what is the most representative, the median, station per state. This time, instead of looking at one variable at a time, look at the euclidean distance. If multiple stations show in the median, select the one located at the lowest latitude.
 
 ```{r}
+#median 
+met_med_s_lz <- met_lz %>%  group_by(STATE) %>% summarise(
+  across (c(temp, wind.sp, atm.press), function(x) quantile(x, probs = 0.5, na.rm=TRUE))) 
 
-met_avg_lz <- met_lz %>%  group_by(STATE)%>% summarise(
-  across (c(temp, wind.sp, atm.press), function(x) mean(x, na.rm=TRUE))) %>% as.data.frame()
-met_avg_lz
+
+merged <- met_lz %>% left_join(met_med_s_lz, by = "STATE") %>% as.data.frame()
+merged
+```
+```{r}
+euc_station <- merged %>% mutate(
+  distance = ((temp.x -merged$temp.y )^2 + 
+                    (wind.sp.x -merged$temp.y)^2 + 
+                       (atm.press.x -merged$temp.y)^2)^(1/2)) 
 
 
+
+result <- euc_station %>% 
+    group_by(STATE) %>% 
+    slice(which.min(distance))
+
+
+result
+
+#check for duplicates
+length(unique(result$STATE)) == nrow(result)
 ```
 
 Knit the doc and save it on GitHub.
