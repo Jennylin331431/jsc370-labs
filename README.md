@@ -44247,3 +44247,117 @@ need the `mgcv` package and `gam()` function to do this.
 - fit both a linear model and a spline model (use `gam()` with a cubic
   regression spline on wind speed). Summarize and plot the results from
   the models and interpret which model is the best fit and why.
+
+``` r
+library(mgcv)
+```
+
+    ## Loading required package: nlme
+
+    ## 
+    ## Attaching package: 'nlme'
+
+    ## The following object is masked from 'package:dplyr':
+    ## 
+    ##     collapse
+
+    ## This is mgcv 1.8-41. For overview type 'help("mgcv-package")'.
+
+``` r
+library(ggplot2)
+
+#data
+med_station_lz <- met_lz %>%  group_by(USAFID) %>% summarise(
+  across (c(temp, wind.sp), function(x) quantile(x,probs = 0.5,na.rm=TRUE))) %>% as.data.frame()
+```
+
+``` r
+#plot scatter plot
+ggplot(med_station_lz, aes(x=wind.sp, y=temp))+
+    geom_point()+
+   geom_smooth(method='lm',col="red")+
+    geom_smooth(col="blue")
+```
+
+    ## `geom_smooth()` using formula = 'y ~ x'
+
+    ## Warning: Removed 16 rows containing non-finite values (`stat_smooth()`).
+
+    ## `geom_smooth()` using method = 'gam' and formula = 'y ~ s(x, bs = "cs")'
+
+    ## Warning: Removed 16 rows containing non-finite values (`stat_smooth()`).
+
+    ## Warning: Removed 16 rows containing missing values (`geom_point()`).
+
+![](README_files/figure-gfm/unnamed-chunk-16-1.png)<!-- -->
+
+``` r
+#linear model 
+lmod <- lm(temp ~ wind.sp, data = med_station_lz)
+plot(lmod)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-17-1.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-17-2.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-17-3.png)<!-- -->![](README_files/figure-gfm/unnamed-chunk-17-4.png)<!-- -->
+
+``` r
+summary(lmod)
+```
+
+    ## 
+    ## Call:
+    ## lm(formula = temp ~ wind.sp, data = med_station_lz)
+    ## 
+    ## Residuals:
+    ##      Min       1Q   Median       3Q      Max 
+    ## -17.7243  -2.6518  -0.2309   2.7691  14.5052 
+    ## 
+    ## Coefficients:
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept) 22.23088    0.21779  102.08  < 2e-16 ***
+    ## wind.sp      0.48614    0.08212    5.92 3.94e-09 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Residual standard error: 3.849 on 1577 degrees of freedom
+    ##   (16 observations deleted due to missingness)
+    ## Multiple R-squared:  0.02174,    Adjusted R-squared:  0.02112 
+    ## F-statistic: 35.05 on 1 and 1577 DF,  p-value: 3.941e-09
+
+``` r
+#gam model
+
+gmod<- gam(temp ~s(wind.sp,k = 7, fx = TRUE, bs = "cr"), data = med_station_lz)
+plot(gmod)
+```
+
+![](README_files/figure-gfm/unnamed-chunk-18-1.png)<!-- -->
+
+``` r
+summary(gmod)
+```
+
+    ## 
+    ## Family: gaussian 
+    ## Link function: identity 
+    ## 
+    ## Formula:
+    ## temp ~ s(wind.sp, k = 7, fx = TRUE, bs = "cr")
+    ## 
+    ## Parametric coefficients:
+    ##             Estimate Std. Error t value Pr(>|t|)    
+    ## (Intercept) 23.38566    0.09549   244.9   <2e-16 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## Approximate significance of smooth terms:
+    ##            edf Ref.df     F p-value    
+    ## s(wind.sp)   6      6 14.42  <2e-16 ***
+    ## ---
+    ## Signif. codes:  0 '***' 0.001 '**' 0.01 '*' 0.05 '.' 0.1 ' ' 1
+    ## 
+    ## R-sq.(adj) =  0.0486   Deviance explained = 5.22%
+    ## GCV = 14.463  Scale est. = 14.399    n = 1579
+
+**Interpretation**: Both models generate a p-value less than 0.05.
+However, the p-value for the spline is lower than the linear model.
+Therefore, the spline should be a better model fit.
