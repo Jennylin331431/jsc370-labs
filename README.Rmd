@@ -81,10 +81,22 @@ Once you are done setting up the project, you can now start working with the MET
 ## Setup in R
 
 1. Load the `data.table` (and the `dtplyr` and `dplyr` packages if you plan to work with those).
+```{r}
+library('data.table')
+library('dplyr')
+library('dtplyr')
 
+```
 2. Load the met data from https://github.com/JSC370/jsc370-2023/blob/main/labs/lab03/met_all.gz or  (Use https://raw.githubusercontent.com/JSC370/jsc370-2023/main/labs/lab03/met_all.gz to download programmatically), and also the station data. For the latter, you can use the code we used during lecture to pre-process the stations data:
 
-```{r stations-data, eval = FALSE}
+```{r}
+#read met
+met <- fread("https://raw.githubusercontent.com/JSC370/jsc370-2023/main/labs/lab03/met_all.gz")
+head(met)
+```
+
+
+```{r stations-data, eval = TRUE}
 # Download the data
 stations <- fread("ftp://ftp.ncdc.noaa.gov/pub/data/noaa/isd-history.csv")
 stations[, USAF := as.integer(USAF)]
@@ -103,12 +115,64 @@ stations <- stations[n == 1,][, n := NULL]
 
 3. Merge the data as we did during the lecture.
 
+```{r}
+data <- merge(
+# Data
+ x = met, 
+ y = stations, 
+# List of variables to match
+ by.x = "USAFID",
+ by.y = "USAF", 
+# Which obs to keep?
+ all.x = TRUE, 
+ all.y = FALSE
+ ) 
+
+
+```
+```{r}
+met_lz <- lazy_dt(data, immutable = FALSE)
+met_lz
+```
+
+
 ## Question 1: Representative station for the US
 
 Across all weather stations, what is the median station in terms of temperature, wind speed, and atmospheric pressure? Look for the three weather stations that best represent continental US using the `quantile()` function. Do these three coincide?
+```{r}
+met_avg_lz <- met_lz %>%  group_by(USAFID)%>% summarise(
+  across (c(temp, wind.sp, atm.press), function(x) mean(x, na.rm=TRUE))) 
+met_avg_lz
+```
 
 ```{r}
+#median 
+met_med_lz <- met_avg_lz %>% summarise(
+  across (c(temp, wind.sp, atm.press), function(x) quantile(x, probs = 0.5, na.rm=TRUE)))
+met_med_lz
 ```
+
+```{r}
+med_temp <- met_avg_lz %>% mutate(
+  temp_diff = abs(temp - (met_med_lz %>% pull(temp)))) %>% arrange((temp_diff)) %>% slice(1) %>% pull(USAFID)
+
+
+med_wind <- met_avg_lz %>% mutate(
+  wind_diff = abs(wind.sp - (met_med_lz %>% pull(wind.sp)))) %>% arrange((wind_diff)) %>% slice(1) %>% pull(USAFID)
+
+
+med_pres <- met_avg_lz %>% mutate(
+  pres_diff = abs(atm.press - (met_med_lz %>% pull(atm.press)))) %>% arrange((pres_diff)) %>% slice(1) %>% pull(USAFID)
+
+
+med_temp
+med_wind
+med_pres
+```
+
+**Response**
+The three stations are not identical. For temperature, the median station is 720458; for wind speed, the median station is 720929, and for atmosphere pressure, the median station is 722238. They do not coincide. 
+
 
 Knit the document, commit your changes, and save it on GitHub. Don't forget to add `README.md` to the tree, the first time you render it.
 
@@ -117,6 +181,12 @@ Knit the document, commit your changes, and save it on GitHub. Don't forget to a
 Just like the previous question, you are asked to identify what is the most representative, the median, station per state. This time, instead of looking at one variable at a time, look at the euclidean distance. If multiple stations show in the median, select the one located at the lowest latitude.
 
 ```{r}
+
+met_avg_lz <- met_lz %>%  group_by(STATE)%>% summarise(
+  across (c(temp, wind.sp, atm.press), function(x) mean(x, na.rm=TRUE))) %>% as.data.frame()
+met_avg_lz
+
+
 ```
 
 Knit the doc and save it on GitHub.
@@ -126,6 +196,8 @@ Knit the doc and save it on GitHub.
 For each state, identify what is the station that is closest to the mid-point of the state. Combining these with the stations you identified in the previous question, use `leaflet()` to visualize all ~100 points in the same figure, applying different colors for those identified in this question.
 
 ```{r}
+
+
 ```
 
 Knit the doc and save it on GitHub.
