@@ -1,0 +1,165 @@
+---
+title: "Lab 08 - Text Mining"
+output: 
+  tufte::tufte_html:
+    css: style.css
+---
+
+```{r setup}
+knitr::opts_chunk$set(eval = F, include  = T)
+```
+
+# Learning goals
+
+- Use `unnest_tokens()` and `unnest_ngrams()` to extract tokens and ngrams from text.
+- Use dplyr and ggplot2 to analyze text data
+
+# Lab description
+
+For this lab we will be working with the medical record transcriptions from https://www.mtsamples.com/. And is loaded and "fairly" cleaned at https://github.com/JSC370/jsc370-2023/blob/main/data/medical_transcriptions/.
+
+
+### Setup packages
+
+You should load in `dplyr`, (or `data.table` if you want to work that way), `ggplot2` and `tidytext`.
+If you don't already have `tidytext` then you can install with
+
+```{r, eval=FALSE}
+# install.packages("tidytext")
+```
+
+### read in Medical Transcriptions
+
+Loading in reference transcription samples from https://www.mtsamples.com/
+
+```{r, warning=FALSE, message=FALSE}
+library(tidytext)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(ggplot2)
+data_url <- paste0(
+  "https://raw.githubusercontent.com/JSC370/",
+  "jsc370-2023/main/data/medical_transcriptions/mtsamples.csv"
+  )
+mt_samples <- read_csv(data_url)
+mt_samples <- mt_samples |>
+  select(description, medical_specialty, transcription)
+head(mt_samples)
+```
+---
+
+## Question 1: What specialties do we have?
+
+We can use `count()` from `dplyr` to figure out how many different categories we have. Are these categories related? overlapping? evenly distributed?
+
+```{r}
+mt_samples |> count(medical_specialty, sort = TRUE) |> 
+  ggplot(aes(medical_specialty, n)) + 
+  theme_minimal() + 
+  geom_col() + 
+  coord_flip()
+```
+
+
+**Response:**
+
+We have 
+## Question 2
+
+- Tokenize the the words in the `transcription` column
+- Count the number of times each token appears
+- Visualize the top 20 most frequent words
+
+Explain what we see from this result. Does it makes sense? What insights (if any) do we get?
+
+```{r}
+```
+
+
+---
+
+## Question 3
+
+- Redo visualization for the top 20 most frequent words after removing stop words
+- Bonus points if you remove numbers as well
+
+What do we see know that we have removed stop words? Does it give us a better idea of what the text is about?
+
+
+```{r}
+library(stopwords)
+head(stopwords("english"))
+length(stopwords("english"))
+```
+
+```{r}
+```
+
+Another method for visualizing word counts is using a word cloud via `wordcloud::wordcloud()`. Create a world cloud for the top 50 most frequent words after removing stop words (and numbers).
+
+
+```{r}
+library(wordcloud)
+```
+
+```{r}
+```
+
+---
+
+# Question 4
+
+Repeat question 3, but this time tokenize into bi-grams. How does the result change if you look at tri-grams? (You don't need to create the word clouds.)
+
+```{r}
+```
+
+```{r fig.show="hold", out.width="50%"}
+# bar plots
+```
+
+---
+
+# Question 5
+
+Using the results you got from question 4. Pick a word and count the words that appears after or before it.
+
+
+```{r}
+```
+
+---
+
+# Question 6 
+
+Which words are most used in each of the specialties. you can use `group_by()` and `top_n()` from `dplyr` to have the calculations be done within each specialty. Remember to remove stop words. How about the most 5 used words?
+
+```{r}
+```
+
+# Question 7 - extra
+
+Find your own insight in the data:
+
+Ideas:
+
+-  Use TF-IDF to see if certain words are used more in some specialties then others. Compare the list of words compared to the list from Question 6.
+
+```{r}
+```
+
+
+-  Sentiment analysis to see if certain specialties are more optimistic than others. How would you define "optimistic"?
+
+```{r}
+```
+
+- Find which specialty writes the longest sentences.
+
+```{r}
+```
+
+# Deliverables
+
+1. Questions 1-7 answered, pdf or html output uploaded to Quercus
