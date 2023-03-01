@@ -6,7 +6,7 @@ output:
 ---
 
 ```{r setup}
-knitr::opts_chunk$set(eval = F, include  = T)
+knitr::opts_chunk$set(eval = TRUE, include  = T)
 ```
 
 # Learning goals
@@ -37,6 +37,8 @@ library(tidytext)
 library(readr)
 library(dplyr)
 library(tidyr)
+library(forcats)
+
 library(ggplot2)
 data_url <- paste0(
   "https://raw.githubusercontent.com/JSC370/",
@@ -54,17 +56,24 @@ head(mt_samples)
 We can use `count()` from `dplyr` to figure out how many different categories we have. Are these categories related? overlapping? evenly distributed?
 
 ```{r}
-mt_samples |> count(medical_specialty, sort = TRUE) |> 
+mt_samples |> count(medical_specialty, sort = TRUE) 
+
+mt_samples |> count(medical_specialty, sort = TRUE) |>
+  mutate(medical_specialty = fct_reorder(medical_specialty, n))|>
   ggplot(aes(medical_specialty, n)) + 
   theme_minimal() + 
   geom_col() + 
-  coord_flip()
+  coord_flip() + 
+  labs(x = NULL, y = NULL)
+
 ```
 
 
 **Response:**
 
-We have 
+We have 30 categories. They are not evenly distributed. The highest we have is 1103 observations in surgery category, while Allergy and Dentistry only have 1 observation. 
+
+
 ## Question 2
 
 - Tokenize the the words in the `transcription` column
@@ -74,8 +83,24 @@ We have
 Explain what we see from this result. Does it makes sense? What insights (if any) do we get?
 
 ```{r}
+tokens <- mt_samples |> select(transcription) |> 
+  unnest_tokens(word, transcription) |> count(word, sort = TRUE)
+
+
+
+tokens |> slice_max(n, n = 20) |>
+  ggplot(aes(reorder(word,n), n)) + 
+  theme_minimal() + 
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(x = NULL, y = NULL)
+
+
 ```
 
+**Response:**
+
+It makes sense that words like "the" and "and" appear the most often, since they are used the most often in sentences. However, these are considered stop words, which don't really contribute any meaning to the transcription. Therefore, this motivates us to remove them. Even so, there are still significant words like "patient" in the top 20 count, which have meaning towards the transcription. 
 
 ---
 
@@ -94,6 +119,18 @@ length(stopwords("english"))
 ```
 
 ```{r}
+#no stop words
+tokens_no_stopwords <- tokens |> 
+  filter(!word %in% stopwords("english"), !grepl('^[0-9]',word, ignore.case = TRUE))
+
+#barplot
+tokens_no_stopwords |>
+  slice_max(n, n = 20) |>
+  ggplot(aes(reorder(word,n), n)) + 
+  theme_minimal() + 
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(x = NULL, y = NULL)
 ```
 
 Another method for visualizing word counts is using a word cloud via `wordcloud::wordcloud()`. Create a world cloud for the top 50 most frequent words after removing stop words (and numbers).
@@ -104,6 +141,10 @@ library(wordcloud)
 ```
 
 ```{r}
+#top 50 wordcloud
+tokens50 = tokens_no_stopwords |> 
+  slice_max(n, n= 50) 
+wordcloud(tokens50$word, tokens50$n, colors = brewer.pal(9,"Blues"))
 ```
 
 ---
@@ -113,20 +154,60 @@ library(wordcloud)
 Repeat question 3, but this time tokenize into bi-grams. How does the result change if you look at tri-grams? (You don't need to create the word clouds.)
 
 ```{r}
+sw_start <- paste0("^", paste(stopwords("english"), collapse = " |^"), " ")
+
+sw_end <- paste0(" ", paste(stopwords("english"), collapse = "$| "), "$")
+
+
+tokens_bigram <- mt_samples |> select(transcription) |> 
+  unnest_tokens(ngram, transcription, token = "ngrams", n= 2) |> 
+  filter(
+    #remove those with stop words
+    !grepl(sw_start,ngram, ignore.case = TRUE), 
+        !grepl(sw_end ,ngram, ignore.case = TRUE),
+    #remove numbers 
+  !grepl('^[0-9]',ngram, ignore.case = TRUE),
+    !grepl('[0-9]$',ngram, ignore.case = TRUE),
+
+  ) |>
+  count(ngram)
+
 ```
 
 ```{r fig.show="hold", out.width="50%"}
 # bar plots
+tokens_bigram |>
+  slice_max(n, n = 20) |>
+  ggplot(aes(reorder(ngram,n), n)) + 
+  theme_minimal() + 
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(x = NULL, y = NULL)
+
 ```
 
 ---
 
 # Question 5
 
-Using the results you got from question 4. Pick a word and count the words that appears after or before it.
+Using the results you got from question 4. Pick a word and count the words that appears after or before it. Also, try finding pairs of words after and before the word. 
 
 
 ```{r}
+library(stringr)
+
+tokens_bigram |>
+  filter(str_detect(ngram, regex("\\spatients$|^patient\\s"))) |> 
+  mutate(word = str_remove(ngram, "patient"),
+         word = str_remove_all(word, " ")) |> 
+  group_by(word) |>
+  summarise(n = sum(n)) |> 
+  slice_max(n, n = 50) |> 
+  ggplot(aes(reorder(word, n), n)) + 
+  theme_minimal() + 
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(x = NULL, y = NULL)
 ```
 
 ---
@@ -136,7 +217,23 @@ Using the results you got from question 4. Pick a word and count the words that 
 Which words are most used in each of the specialties. you can use `group_by()` and `top_n()` from `dplyr` to have the calculations be done within each specialty. Remember to remove stop words. How about the most 5 used words?
 
 ```{r}
+
+tokens <- mt_samples |> select(transcription, medical_specialty) |> 
+  unnest_tokens(word, transcription)
+
+tokens_no_stopwords <- tokens |> 
+  filter(!word %in% stopwords("english"), 
+         !grepl("\\d+", word, ignore.case = TRUE))
+
+
+# most used words in each of the speciality
+tokens_no_stopwords  %>% group_by(medical_specialty)%>% 
+ count(word, sort = TRUE)%>% top_n(n = 5)
+
 ```
+
+
+
 
 # Question 7 - extra
 
@@ -147,18 +244,69 @@ Ideas:
 -  Use TF-IDF to see if certain words are used more in some specialties then others. Compare the list of words compared to the list from Question 6.
 
 ```{r}
+tf_idf_by_speciality <- mt_samples |> 
+  unnest_tokens(word, transcription) |>
+  filter(!word %in% stopwords("english")) |> 
+  count(word, medical_specialty) |> 
+  bind_tf_idf(word, medical_specialty, n) |>
+  group_by(medical_specialty)
+
+tf_idf_by_speciality %>%
+ slice_max(tf_idf , n = 5) |>
+  filter(medical_specialty %in% c("Surgery" , "Dentistry", "Allergy / Immunology")) |>
+  ggplot(aes(reorder(word, n), n)) + 
+  theme_minimal() + 
+  geom_bar(stat = "identity") +
+  coord_flip() + 
+  labs(x = NULL, y = NULL)+ 
+    facet_wrap(~ medical_specialty, scales = "free_y")
+
 ```
-
-
--  Sentiment analysis to see if certain specialties are more optimistic than others. How would you define "optimistic"?
 
 ```{r}
+#other
+a <- mt_samples |> filter(str_detect(transcription, " elevator ")) |> 
+  pull(transcription)
 ```
+
+-  Sentiment analysis to see if certain specialties are more optimistic than others. How would you define "optimistic"?
+```{r}
+sentiment_list <- get_sentiments("bing")
+
+sentiments_in_med <- tf_idf_by_speciality |> left_join(sentiment_list, by = "word")
+
+
+sentiments_in_med_by_sp <- sentiments_in_med |> 
+  group_by(medical_specialty) |>
+  summarise(n_positive = sum(ifelse(sentiment == "positive",n, 0 ), na.rm = TRUE),            
+            n_negative = sum(ifelse(sentiment == "negative",n, 0), na.rm = TRUE),
+n = sum(n))
+
+sentiments_in_med_by_sp |> 
+  ggplot(aes(reorder(medical_specialty, n))) + 
+  theme_minimal() +
+  geom_col(aes(y = - n_negative / n), fill =  "pink") + 
+    geom_col(aes(y = n_positive / n), fill =  "darkgreen" ) + 
+   coord_flip() + 
+  labs(x = NULL, y = NULL)
+
+```
+
 
 - Find which specialty writes the longest sentences.
 
 ```{r}
+#tokenize in sentences 
+tokens <- mt_samples |> select(transcription, medical_specialty) |> 
+  unnest_tokens(sentence, transcription, token = "sentences")
+
+#create summary table of sentence length for each specicalty
+tokens %>% mutate(length = str_count(sentence, "\\w+"))  %>% group_by(medical_specialty) %>% summarise(average_length = mean(length), max_length = max(length), min_length = min(length), n = n())%>% arrange(desc(average_length))
 ```
+
+**Response:**
+
+Speech specialty has the longest sentences on average.
 
 # Deliverables
 
